@@ -24,7 +24,15 @@ export function productionConfigured(): boolean {
 function db() {
   const url = process.env.ARKAN_SUPABASE_URL!;
   const key = process.env.ARKAN_SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    global: {
+      // مثل store/supabase.ts — جلوگیری از Data Cache نکست.
+      // اینجا حتی مهم‌تر است: آمار تولید باید همیشه تازه باشد،
+      // وگرنه داشبورد پایش، عکس دیروز را نشان می‌دهد.
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
+  });
 }
 
 export type ProductionStats = {

@@ -15,7 +15,21 @@ export class SupabaseStore implements BlogStoreLike {
   private db: SupabaseClient;
 
   constructor(url: string, serviceKey: string) {
-    this.db = createClient(url, serviceKey, { auth: { persistSession: false } });
+    this.db = createClient(url, serviceKey, {
+      auth: { persistSession: false },
+      global: {
+        // ⚠️ بدون این، Next.js پاسخ‌های Supabase را در Data Cache نگه می‌دارد.
+        // چون supabase-js زیر کاپوت از fetch استفاده می‌کند و نکست همه‌ی
+        // fetchها را به‌صورت پیش‌فرض کش می‌کند.
+        //
+        // علامتش گیج‌کننده است: صفحه‌ی «داورِ داور» که اولین بار با صفر
+        // برچسب رندر شده بود، همان پاسخ خالی را برای همیشه نشان می‌داد،
+        // در حالی که API همان لحظه دو برچسب برمی‌گرداند.
+        //
+        // همان تله‌ای که فاز ۲ هنگام خواندن بلاگ خورد.
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
+    });
   }
 
   async saveRun(run: EvalRun): Promise<void> {
@@ -74,7 +88,11 @@ export class SupabaseStore implements BlogStoreLike {
     let q = this.db.from("eval_human_labels").select("*");
     if (runId) q = q.eq("run_id", runId);
     const { data, error } = await q.order("created_at", { ascending: false });
-    if (error || !data) return [];
+    // خطا را صریح بالا می‌بریم؛ آرایه‌ی خالیِ دروغین باعث می‌شود
+    // صفحه‌ی «داورِ داور» بگوید «برچسبی ثبت نشده» در حالی که مشکل
+    // چیز دیگری است.
+    if (error) throw new Error(`خواندن برچسب‌ها شکست خورد: ${error.message}`);
+    if (!data) return [];
     return data.map((r) => ({
       id: r.id,
       runId: r.run_id,
