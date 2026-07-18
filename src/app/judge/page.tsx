@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { computeAlignment, kappaLabel } from "@/lib/alignment";
 import { getStore } from "@/lib/store";
-import { VERDICTS, VERDICT_LABELS } from "@/lib/types";
+import { VERDICTS, VERDICT_LABELS, type HumanLabel } from "@/lib/types";
 import { cx, faNum, pct, relTime } from "@/lib/utils";
 import { EmptyState, PageHeader, Stat, Teach, VerdictChip } from "@/components/ui";
 
@@ -45,6 +46,14 @@ export default async function JudgePage() {
   }
 
   const disagreements = labels.filter((l) => l.humanVerdict !== l.judgeVerdict);
+
+  // موارد توافقی که یادداشت دارند. اختلاف نداشتن یعنی داور درست حکم داده،
+  // ولی یادداشت انسان ممکن است هنوز حرفی برای گفتن داشته باشد — مثلاً
+  // «حکم درست بود ولی دلیلش سطحی بود». اگر اینجا نشانشان ندهیم، آن حرف
+  // برای همیشه گم می‌شود.
+  const agreedNotes = labels.filter(
+    (l) => l.humanVerdict === l.judgeVerdict && l.note.trim()
+  );
 
   return (
     <div className="space-y-6">
@@ -145,17 +154,7 @@ export default async function JudgePage() {
         {disagreements.length ? (
           <ul className="space-y-2">
             {disagreements.map((l) => (
-              <li key={l.id} className="rounded-card border border-sand bg-white p-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <code className="text-slate">{l.caseId}</code>
-                  <span className="text-slate">انسان:</span>
-                  <VerdictChip verdict={l.humanVerdict} />
-                  <span className="text-slate">داور:</span>
-                  <VerdictChip verdict={l.judgeVerdict} />
-                  <span className="mr-auto text-slate">{relTime(l.createdAt)}</span>
-                </div>
-                {l.note && <p className="mt-2 text-sm leading-7">{l.note}</p>}
-              </li>
+              <LabelRow key={l.id} label={l} />
             ))}
           </ul>
         ) : (
@@ -166,7 +165,57 @@ export default async function JudgePage() {
         )}
       </div>
 
+      {/* ── یادداشت روی موارد توافق ── */}
+      {agreedNotes.length > 0 && (
+        <div className="card p-5">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <h2 className="font-heading font-semibold">یادداشت روی موارد توافق</h2>
+            <span className="tnum text-xs text-slate">{faNum(agreedNotes.length)} مورد</span>
+          </div>
+          <p className="mb-4 text-xs leading-6 text-slate">
+            جایی که حکم داور و انسان یکی بوده ولی انسان نکته‌ای نوشته است. توافق روی حکم،
+            به‌معنای رضایت از استدلال نیست.
+          </p>
+          <ul className="space-y-2">
+            {agreedNotes.map((l) => (
+              <LabelRow key={l.id} label={l} agreed />
+            ))}
+          </ul>
+        </div>
+      )}
+
       {teach}
     </div>
+  );
+}
+
+/** یک ردیف برچسب — هم برای اختلاف‌ها و هم برای توافق‌های یادداشت‌دار. */
+function LabelRow({ label: l, agreed }: { label: HumanLabel; agreed?: boolean }) {
+  return (
+    <li className="rounded-card border border-sand bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Link
+          href={`/runs/${l.runId}`}
+          className="font-mono text-slate hover:text-brass hover:underline"
+        >
+          {l.caseId}
+        </Link>
+        {agreed ? (
+          <>
+            <span className="text-slate">حکم مشترک:</span>
+            <VerdictChip verdict={l.humanVerdict} />
+          </>
+        ) : (
+          <>
+            <span className="text-slate">انسان:</span>
+            <VerdictChip verdict={l.humanVerdict} />
+            <span className="text-slate">داور:</span>
+            <VerdictChip verdict={l.judgeVerdict} />
+          </>
+        )}
+        <span className="mr-auto text-slate">{relTime(l.createdAt)}</span>
+      </div>
+      {l.note && <p className="mt-2 text-sm leading-7">{l.note}</p>}
+    </li>
   );
 }
