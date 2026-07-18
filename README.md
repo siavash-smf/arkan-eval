@@ -161,6 +161,40 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ---
 
+## استقرار
+
+نسخه‌ی زنده: **https://arkan-eval.vercel.app** (با رمز محافظت می‌شود)
+
+```bash
+vercel link --yes --project arkan-eval
+vercel env add OPENROUTER_API_KEY production
+vercel env add TARGET_CHAT_URL production
+vercel env add EVAL_PASSWORD production     # ⚠️ حتماً
+vercel --prod
+```
+
+### ⚠️ محدودیت شناخته‌شده: بدون Supabase، نتایج روی سرور نمی‌مانند
+
+روی Vercel هر درخواست ممکن است به یک instance متفاوت برسد. `MemoryStore`
+درون همان پروسه زندگی می‌کند، پس:
+
+```
+POST /api/runs/start  → ۲۰۰، نمره ۹۹ برمی‌گردد ✓
+GET  /api/runs/<id>   → ۴۰۴، اجرا ناپدید شده ✗
+```
+
+این رفتار **آزموده و تأیید شده** است، نه حدس. تا وقتی Supabase تنظیم نشود:
+
+- تاریخچه‌ی اجراها همیشه خالی است
+- صفحه‌ی «داورِ داور» هرگز برچسب جمع نمی‌کند (و کاپا قابل محاسبه نیست)
+- گزارش کیس‌به‌کیس فقط تا وقتی باز است دیده می‌شود
+
+**راه‌حل:** `supabase/schema.sql` را اجرا کنید و دو متغیر Supabase را در
+محیط تولید ست کنید. تا آن موقع، برای اجرای واقعی از **CLI** استفاده کنید
+که خروجی را در `reports/` روی دیسک می‌نویسد و این مشکل را ندارد.
+
+---
+
 ## دستورهای CLI
 
 ```bash
