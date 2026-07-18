@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: "ss02" 1;
+  }
+
+  body {
+    @apply bg-bone text-ink font-body antialiased;
+    line-height: 1.8;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-heading;
+    line-height: 1.35;
+  }
+
+  /* اعداد جدولی — برای اینکه ستون نمره‌ها در جدول‌ها نلرزد */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-brass/20;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-sand bg-white shadow-soft;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-btn px-4 py-2
+           text-sm font-medium transition-colors disabled:cursor-not-allowed
+           disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-pine text-bone hover:bg-pine/90;
+  }
+
+  .btn-ghost {
+    @apply btn border border-sand bg-white text-ink hover:bg-sand/40;
+  }
+
+  .field {
+    @apply w-full rounded-btn border border-sand bg-white px-3 py-2 text-sm
+           outline-none focus:border-brass;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+/* نوار پیمایش نازک‌تر برای بلوک‌های اسکرول‌دار */
+.thin-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-sand;
+}
