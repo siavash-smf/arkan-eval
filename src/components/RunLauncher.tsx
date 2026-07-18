@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { apiFetch } from "@/lib/client-auth";
 
 type SuiteMeta = {
   id: string;
@@ -37,7 +38,7 @@ export function RunLauncher({ suites }: { suites: SuiteMeta[] }) {
     const runId = crypto.randomUUID();
 
     try {
-      const res = await fetch("/api/runs/start", {
+      const res = await apiFetch("/api/runs/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

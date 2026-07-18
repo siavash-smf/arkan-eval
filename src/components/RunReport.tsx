@@ -5,6 +5,7 @@ import type { CaseResult, EvalRun, Verdict } from "@/lib/types";
 import { VERDICT_LABELS, VERDICTS } from "@/lib/types";
 import { cx, faNum, ms, pct } from "@/lib/utils";
 import { formatUsd } from "@/lib/pricing";
+import { apiFetch } from "@/lib/client-auth";
 import { DIMENSION_LABELS } from "@/lib/judges/scoring";
 import { DimensionBar, EmptyState, ScoreBadge, Stat, Teach, VerdictBar, VerdictChip } from "./ui";
 
@@ -23,7 +24,7 @@ export function RunReport({ runId, initial }: { runId: string; initial: EvalRun 
     if (run?.status === "done" || run?.status === "error") return;
 
     const timer = setInterval(async () => {
-      const res = await fetch(`/api/runs/${runId}`);
+      const res = await apiFetch(`/api/runs/${runId}`);
       if (!res.ok) return;
       const { run: fresh } = await res.json();
       setRun(fresh);
@@ -373,7 +374,7 @@ function HumanLabeler({
   async function save(humanVerdict: Verdict) {
     setBusy(true);
     try {
-      const res = await fetch("/api/labels", {
+      const res = await apiFetch("/api/labels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ runId, caseId, humanVerdict, judgeVerdict, note }),

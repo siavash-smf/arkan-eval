@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { PasswordGate } from "@/components/PasswordGate";
 import { RunLauncher } from "@/components/RunLauncher";
 import { EmptyState, NavCard, PageHeader, ScoreBadge, Stat, Teach, VerdictBar } from "@/components/ui";
 import { judgeModelId, isConfigured } from "@/lib/ai";
+import { authEnabled } from "@/lib/auth";
 import { formatUsd } from "@/lib/pricing";
 import { getStore, storeKind } from "@/lib/store";
 import { listSuites } from "@/lib/suites";
@@ -27,6 +29,16 @@ export default async function OverviewPage() {
           فایل <code>.env.local.example</code> را به <code>.env.local</code> کپی کنید.
         </div>
       )}
+      <PasswordGate enabled={authEnabled()} />
+
+      {!authEnabled() && (
+        <div className="rounded-card bg-fail/10 p-4 text-sm text-fail">
+          <strong>EVAL_PASSWORD تنظیم نشده — داشبورد کاملاً باز است.</strong> برای توسعه‌ی
+          محلی مشکلی ندارد، ولی روی اینترنت عمومی یعنی هر کسی می‌تواند با کلید OpenRouter
+          شما ارزیابی اجرا کند و هزینه بسازد.
+        </div>
+      )}
+
       {storeKind() === "memory" && (
         <div className="rounded-card border border-brass/30 bg-brass/5 p-4 text-sm">
           نتایج روی <strong>حافظه</strong> ذخیره می‌شوند و با ری‌استارت سرور پاک خواهند شد.
