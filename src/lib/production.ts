@@ -88,7 +88,10 @@ export async function getProductionStats(days = 30): Promise<ProductionStats> {
     // سقف روی تعداد ردیف‌ها می‌گذاریم و تجمیع را در JS انجام می‌دهیم.
     // برای مقیاس آموزشی کافی است؛ در مقیاس بزرگ باید به توابع SQL منتقل شود.
     const [convs, msgs, leads, fb] = await Promise.all([
-      sb.from("conversations").select("id, channel, created_at").gte("created_at", from).limit(5000),
+      // ⚠️ جدول conversations ستون created_at ندارد — زمان شروعش `started_at` است.
+      // (این را با کوئری روی information_schema پیدا کردیم، بعد از اینکه داشبورد
+      //  «۵۴۳ پیام ولی صفر گفتگو» نشان داد.)
+      sb.from("conversations").select("id, channel, started_at").gte("started_at", from).limit(5000),
       sb
         .from("messages")
         .select("id, role, content, model_used, tokens_in, tokens_out, retrieved_chunk_ids, conversation_id, created_at")
@@ -97,6 +100,24 @@ export async function getProductionStats(days = 30): Promise<ProductionStats> {
       sb.from("leads").select("id, source, created_at").gte("created_at", from).limit(5000),
       sb.from("feedback").select("id, rating, comment, message_id, created_at").gte("created_at", from).limit(2000),
     ]);
+
+    // خطای هر کوئری را صریح بالا می‌بریم.
+    // درس گران‌قیمت: نسخه‌ی اول این فایل خطاها را با `?? []` می‌بلعید،
+    // و وقتی نام یک ستون غلط بود داشبورد به‌جای خطا، عدد صفر نشان داد.
+    // «صفرِ دروغین» از «خطای صریح» خیلی خطرناک‌تر است — چون کسی
+    // متوجه نمی‌شود که اندازه‌گیری خراب است.
+    const failed = [
+      ["conversations", convs.error],
+      ["messages", msgs.error],
+      ["leads", leads.error],
+      ["feedback", fb.error],
+    ].filter(([, e]) => e) as [string, { message: string }][];
+
+    if (failed.length) {
+      throw new Error(
+        failed.map(([table, e]) => `${table}: ${e.message}`).join(" · ")
+      );
+    }
 
     const conversations = convs.data ?? [];
     const messages = msgs.data ?? [];
