@@ -19,13 +19,23 @@ import { DimensionBar, EmptyState, ScoreBadge, Stat, Teach, VerdictBar, VerdictC
 export function RunReport({ runId, initial }: { runId: string; initial: EvalRun | null }) {
   const [run, setRun] = useState<EvalRun | null>(initial);
   const [filter, setFilter] = useState<Verdict | "all">("all");
+  const [pollError, setPollError] = useState("");
 
   useEffect(() => {
     if (run?.status === "done" || run?.status === "error") return;
 
     const timer = setInterval(async () => {
       const res = await apiFetch(`/api/runs/${runId}`);
+
+      // اگر رمز نداشته باشیم، هر ۲ ثانیه ۴۰۱ می‌گیریم و صفحه بی‌صدا
+      // یخ می‌زند. بهتر است کاربر بداند چرا پیشرفتی نمی‌بیند.
+      if (res.status === 401) {
+        setPollError("رمز داشبورد ثبت نشده — پیشرفت زنده به‌روز نمی‌شود.");
+        return;
+      }
       if (!res.ok) return;
+
+      setPollError("");
       const { run: fresh } = await res.json();
       setRun(fresh);
     }, 2000);
@@ -60,6 +70,10 @@ export function RunReport({ runId, initial }: { runId: string; initial: EvalRun 
             {faNum(run.progress.done)} از {faNum(run.progress.total)} کیس
           </span>
         </div>
+      )}
+
+      {pollError && (
+        <div className="rounded-card bg-fail/10 p-4 text-sm text-fail">{pollError}</div>
       )}
 
       {run.error && (
@@ -370,16 +384,34 @@ function HumanLabeler({
   const [saved, setSaved] = useState<Verdict | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
 
   async function save(humanVerdict: Verdict) {
     setBusy(true);
+    setError("");
     try {
       const res = await apiFetch("/api/labels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ runId, caseId, humanVerdict, judgeVerdict, note }),
       });
-      if (res.ok) setSaved(humanVerdict);
+
+      if (res.ok) {
+        setSaved(humanVerdict);
+        return;
+      }
+
+      // شکست را حتماً نشان می‌دهیم. نسخه‌ی قبلی این تابع خطا را
+      // بی‌صدا می‌بلعید: کاربر کلیک می‌کرد، هیچ اتفاقی نمی‌افتاد، و
+      // فکر می‌کرد ثبت شده — در حالی که سرور ۴۰۱ برگردانده بود.
+      if (res.status === 401) {
+        setError("رمز داشبورد ثبت نشده یا اشتباه است. آن را در بالای صفحه وارد کنید.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || `ثبت نشد — سرور کد ${res.status} برگرداند.`);
+      }
+    } catch (e) {
+      setError(`ثبت نشد: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -414,8 +446,22 @@ function HumanLabeler({
             {VERDICT_LABELS[v]}
           </button>
         ))}
-        {saved && <span className="text-xs text-pass">ثبت شد</span>}
+        {saved && <span className="text-xs text-pass">ثبت شد ✓</span>}
       </div>
+
+      {error && (
+        <p className="mt-2 rounded-btn bg-fail/10 px-3 py-2 text-xs text-fail">{error}</p>
+      )}
+
+      {saved && (
+        <p className="mt-2 text-xs text-slate">
+          در صفحه‌ی{" "}
+          <a href="/judge" className="text-brass hover:underline">
+            داورِ داور
+          </a>{" "}
+          می‌توانید هم‌خوانی داور با قضاوت خودتان را ببینید.
+        </p>
+      )}
     </section>
   );
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import { PasswordGate } from "@/components/PasswordGate";
+import { authEnabled } from "@/lib/auth";
 import "./globals.css";
 
 const estedad = localFont({
@@ -76,6 +78,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
+
+        {/* جعبه‌ی رمز باید در *همه‌ی* صفحه‌ها باشد، نه فقط صفحه‌ی اصلی.
+            قبلاً فقط در صفحه‌ی اصلی بود و کاربری که مستقیم وارد گزارش یک
+            اجرا می‌شد، هیچ راهی برای وارد کردن رمز نداشت — درخواست‌هایش
+            ۴۰۱ می‌گرفتند بدون اینکه بفهمد چرا. */}
+        {authEnabled() && (
+          <div className="mx-auto max-w-content px-5 pt-5">
+            <PasswordGate enabled />
+          </div>
+        )}
 
         <main className="mx-auto max-w-content px-5 py-8">{children}</main>
 

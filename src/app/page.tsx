@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { PasswordGate } from "@/components/PasswordGate";
 import { RunLauncher } from "@/components/RunLauncher";
 import { EmptyState, NavCard, PageHeader, ScoreBadge, Stat, Teach, VerdictBar } from "@/components/ui";
 import { judgeModelId, isConfigured } from "@/lib/ai";
@@ -29,8 +28,6 @@ export default async function OverviewPage() {
           فایل <code>.env.local.example</code> را به <code>.env.local</code> کپی کنید.
         </div>
       )}
-      <PasswordGate enabled={authEnabled()} />
-
       {!authEnabled() && (
         <div className="rounded-card bg-fail/10 p-4 text-sm text-fail">
           <strong>EVAL_PASSWORD تنظیم نشده — داشبورد کاملاً باز است.</strong> برای توسعه‌ی
