@@ -37,6 +37,7 @@ export const metadata: Metadata = {
 
 const NAV = [
   { href: "/", label: "نمای کلی" },
+  { href: "/learn", label: "از نتیجه تا اقدام" },
   { href: "/runs", label: "اجراها" },
   { href: "/suites", label: "مجموعه‌ی آزمون" },
   { href: "/production", label: "تولید" },

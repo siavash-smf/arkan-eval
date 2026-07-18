@@ -143,6 +143,11 @@ export default async function OverviewPage() {
         <h2 className="mb-3 font-heading text-lg font-semibold">بخش‌های داشبورد</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <NavCard
+            href="/learn"
+            title="از نتیجه تا اقدام"
+            description="راهنمای آموزشی: هر عدد چه می‌گوید و بعدش باید چه کرد."
+          />
+          <NavCard
             href="/suites"
             title="مجموعه‌ی آزمون"
             description="خط‌کش ثابت — کیس‌هایی که بعد از هر تغییر دوباره اجرا می‌شوند."
