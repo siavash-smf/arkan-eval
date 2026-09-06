@@ -41,7 +41,10 @@ if (!url || !key) {
 }
 
 const run = JSON.parse(readFileSync(path.resolve(ROOT, file), "utf8"));
-const db = createClient(url, key, { auth: { persistSession: false } });
+const db = createClient(url, key, {
+  db: { schema: "arkan" },
+  auth: { persistSession: false },
+});
 
 const { error } = await db.from("eval_runs").upsert({
   id: run.id,

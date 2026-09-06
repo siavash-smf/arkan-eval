@@ -25,6 +25,7 @@ function db() {
   const url = process.env.ARKAN_SUPABASE_URL!;
   const key = process.env.ARKAN_SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(url, key, {
+    db: { schema: "arkan" },
     auth: { persistSession: false },
     global: {
       // مثل store/supabase.ts — جلوگیری از Data Cache نکست.

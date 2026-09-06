@@ -12,10 +12,11 @@ import type { BlogStoreLike } from "./index";
  * فیلتر و تجمیع بزنیم، آن‌وقت وقتِ نرمال‌سازی است.)
  */
 export class SupabaseStore implements BlogStoreLike {
-  private db: SupabaseClient;
+  private db: SupabaseClient<any, any, any>;
 
   constructor(url: string, serviceKey: string) {
     this.db = createClient(url, serviceKey, {
+      db: { schema: "arkan" },
       auth: { persistSession: false },
       global: {
         // ⚠️ بدون این، Next.js پاسخ‌های Supabase را در Data Cache نگه می‌دارد.
