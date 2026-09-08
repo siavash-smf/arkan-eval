@@ -113,17 +113,27 @@ const run = await runEvaluation({
 /* ── خلاصه در ترمینال ────────────────────────────────────── */
 const s = run.summary;
 console.log("\n" + "─".repeat(60));
-console.log(`نمره‌ی کل:        ${s.overallScore}/100`);
-console.log(`موفق/نسبی/ناموفق: ${s.counts.pass} / ${s.counts.partial} / ${s.counts.fail}`);
-console.log(`انطباق با انتظار: ${s.dimensions.expectation ?? "—"}/10`);
-console.log(`وفاداری به منبع:  ${s.dimensions.faithfulness ?? "—"}/10`);
-console.log(`ایمنی و گاردریل:  ${s.dimensions.safety ?? "—"}/10`);
-console.log(`لحن برند:         ${s.dimensions.brandVoice ?? "—"}/10`);
-console.log(`تأخیر میانگین:    ${(s.latency.avgMs / 1000).toFixed(1)}s  (p95: ${(s.latency.p95Ms / 1000).toFixed(1)}s)`);
-console.log(`شکاف دانش:        ${s.knowledgeGaps} کیس`);
-console.log(`هزینه‌ی داوری:    $${s.judgeCostUsd.toFixed(4)}  (${s.judgeTokens.in + s.judgeTokens.out} توکن)`);
-console.log(`زمان اجرا:        ${((Date.now() - started) / 1000).toFixed(0)}s`);
+
+// اگر اندازه‌گیری خراب بوده، نمره را *به‌جای* خودش چاپ نمی‌کنیم.
+// نمره‌ی گمراه‌کننده از نبودِ نمره بدتر است.
+if (!s.integrity.trustworthy) {
+  console.log("⛔ این اجرا نامعتبر است — نمره‌ای گزارش نمی‌شود.");
+  console.log(`   ${s.integrity.reason}`);
+  console.log(`   (نمره‌ی محاسبه‌شده ${s.overallScore} بود، ولی قابل استناد نیست.)`);
+  console.log("─".repeat(60));
+} else {
+  console.log(`نمره‌ی کل:        ${s.overallScore}/100`);
+  console.log(`موفق/نسبی/ناموفق: ${s.counts.pass} / ${s.counts.partial} / ${s.counts.fail}`);
+  console.log(`انطباق با انتظار: ${s.dimensions.expectation ?? "—"}/10`);
+  console.log(`وفاداری به منبع:  ${s.dimensions.faithfulness ?? "—"}/10`);
+  console.log(`ایمنی و گاردریل:  ${s.dimensions.safety ?? "—"}/10`);
+  console.log(`لحن برند:         ${s.dimensions.brandVoice ?? "—"}/10`);
+  console.log(`تأخیر میانگین:    ${(s.latency.avgMs / 1000).toFixed(1)}s  (p95: ${(s.latency.p95Ms / 1000).toFixed(1)}s)`);
+  console.log(`شکاف دانش:        ${s.knowledgeGaps} کیس`);
+  console.log(`هزینه‌ی داوری:    $${s.judgeCostUsd.toFixed(4)}  (${s.judgeTokens.in + s.judgeTokens.out} توکن)`);
+  console.log(`زمان اجرا:        ${((Date.now() - started) / 1000).toFixed(0)}s`);
 console.log("─".repeat(60));
+}
 
 /* ── ذخیره‌ی خروجی ───────────────────────────────────────── */
 const outDir = path.join(ROOT, "reports");
@@ -154,7 +164,17 @@ function toMarkdown(run) {
   L.push("");
   L.push(`## خلاصه‌ی مدیریتی`);
   L.push("");
-  L.push(`**نمره‌ی کل: ${s.overallScore}/100**`);
+  if (!s.integrity.trustworthy) {
+    L.push(`> ## ⛔ این گزارش نامعتبر است`);
+    L.push(`>`);
+    L.push(`> ${s.integrity.reason}`);
+    L.push(`>`);
+    L.push(`> نمره‌ی محاسبه‌شده **${s.overallScore}/100** بود، ولی به آن استناد نکنید:`);
+    L.push(`> کیس بی‌پاسخ داوری نمی‌شود و صفرش «نمره» نیست، «داده‌ی گمشده» است.`);
+    L.push(`> علت را برطرف کنید و دوباره اجرا کنید.`);
+    L.push("");
+  }
+  L.push(`**نمره‌ی کل: ${s.overallScore}/100**${s.integrity.trustworthy ? "" : " ⛔ نامعتبر"}`);
   L.push("");
   L.push(`- ✅ موفق: ${s.counts.pass}`);
   L.push(`- ⚠️ نسبی: ${s.counts.partial}`);

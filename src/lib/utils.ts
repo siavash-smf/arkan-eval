@@ -39,3 +39,16 @@ export function avg(values: number[]): number {
   if (!values.length) return 0;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
+
+
+/**
+ * آیا می‌شود به نمره‌ی این اجرا استناد کرد؟
+ *
+ * ⚠️ سازگاری با گذشته: اجراهایی که پیش از افزودن گارد سلامت ذخیره شده‌اند
+ * فیلد integrity ندارند. نبودِ فیلد یعنی «سنجیده نشده»، نه «خراب» — پس
+ * پیش‌فرض معتبر است. بدون این، همه‌ی گزارش‌های قدیمی یک‌شبه «نامعتبر»
+ * برچسب می‌خوردند و خط پایه‌ی ۹۴ هم از بین می‌رفت.
+ */
+export function isTrustworthy(summary: { integrity?: { trustworthy: boolean } } | null): boolean {
+  return summary?.integrity?.trustworthy !== false;
+}

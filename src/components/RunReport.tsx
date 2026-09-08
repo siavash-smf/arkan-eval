@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CaseResult, EvalRun, Verdict } from "@/lib/types";
 import { VERDICT_LABELS, VERDICTS } from "@/lib/types";
-import { cx, faNum, ms, pct } from "@/lib/utils";
+import { cx, faNum, isTrustworthy, ms, pct } from "@/lib/utils";
 import { formatUsd } from "@/lib/pricing";
 import { apiFetch } from "@/lib/client-auth";
 import { DIMENSION_LABELS } from "@/lib/judges/scoring";
@@ -126,15 +126,42 @@ export function RunReport({ runId, initial }: { runId: string; initial: EvalRun 
         <div className="rounded-card bg-fail/10 p-4 text-sm text-fail">خطای اجرا: {run.error}</div>
       )}
 
+      {/* ── هشدار اجرای نامعتبر ── */}
+      {s && !isTrustworthy(s) && (
+        <div className="rounded-card border-2 border-fail/30 bg-fail/5 p-5">
+          <h2 className="font-heading font-bold text-fail">⛔ این اجرا نامعتبر است</h2>
+          <p className="mt-2 text-sm text-ink">{s.integrity?.reason}</p>
+          <p className="mt-3 text-sm text-slate">
+            نمره‌ی محاسبه‌شده <span className="tnum font-bold">{faNum(s.overallScore)}</span> بود،
+            ولی به آن استناد نکنید. کیسی که پاسخی نگرفته اصلاً داوری نمی‌شود و صفرش
+            «نمره» نیست، «داده‌ی گمشده» است. علت را برطرف کنید و دوباره اجرا کنید.
+          </p>
+        </div>
+      )}
+
       {/* ── خلاصه ── */}
       {s && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="نمره‌ی کل"
-              value={`${faNum(s.overallScore)}/۱۰۰`}
-              tone={s.overallScore >= 80 ? "pass" : s.overallScore >= 60 ? "partial" : "fail"}
-              hint="میانگین وزن‌دار همه‌ی کیس‌ها"
+              value={
+                isTrustworthy(s) ? `${faNum(s.overallScore)}/۱۰۰` : "نامعتبر"
+              }
+              tone={
+                !isTrustworthy(s)
+                  ? undefined
+                  : s.overallScore >= 80
+                    ? "pass"
+                    : s.overallScore >= 60
+                      ? "partial"
+                      : "fail"
+              }
+              hint={
+                isTrustworthy(s)
+                  ? "میانگین وزن‌دار همه‌ی کیس‌ها"
+                  : "اندازه‌گیری کامل نشده — بالا را بخوانید"
+              }
             />
             <Stat
               label="موفق / نسبی / ناموفق"

@@ -58,10 +58,34 @@ export function scoreTone(score: number): "pass" | "partial" | "fail" {
   return "fail";
 }
 
-export function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" | "lg" }) {
+export function ScoreBadge({
+  score,
+  size = "md",
+  invalid = false,
+}: {
+  score: number;
+  size?: "sm" | "md" | "lg";
+  /** اجرای نامعتبر: به‌جای نمره، نشانه‌ی خنثی نشان می‌دهیم. */
+  invalid?: boolean;
+}) {
+  const sz = { sm: "text-xs px-2 py-0.5", md: "text-sm px-2.5 py-1", lg: "text-lg px-3 py-1.5" }[size];
+
+  // نمره‌ی یک اجرای خراب نباید کنار نمره‌های سالم بنشیند — حتی با رنگ
+  // قرمز. رنگ قرمز یعنی «بات بد بود»، در حالی که واقعیت این است که
+  // اندازه‌گیری انجام نشده.
+  if (invalid) {
+    return (
+      <span
+        className={cx("rounded-btn bg-slate/10 font-bold text-slate", sz)}
+        title="اجرای نامعتبر — نمره قابل استناد نیست"
+      >
+        ⛔ نامعتبر
+      </span>
+    );
+  }
+
   const tone = scoreTone(score);
   const bg = { pass: "bg-pass/10 text-pass", partial: "bg-partial/10 text-partial", fail: "bg-fail/10 text-fail" }[tone];
-  const sz = { sm: "text-xs px-2 py-0.5", md: "text-sm px-2.5 py-1", lg: "text-lg px-3 py-1.5" }[size];
   return <span className={cx("tnum rounded-btn font-bold", bg, sz)}>{faNum(score)}</span>;
 }
 

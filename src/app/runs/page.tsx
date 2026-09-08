@@ -3,7 +3,7 @@ import Link from "next/link";
 import { EmptyState, PageHeader, ScoreBadge, Teach, VerdictBar } from "@/components/ui";
 import { formatUsd } from "@/lib/pricing";
 import { getStore } from "@/lib/store";
-import { faNum, ms, relTime } from "@/lib/utils";
+import { faNum, isTrustworthy, ms, relTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,11 @@ export default async function RunsPage() {
                 <td className="px-4 py-3">
                   {r.summary ? (
                     <Link href={`/runs/${r.id}`}>
-                      <ScoreBadge score={r.summary.overallScore} size="sm" />
+                      <ScoreBadge
+                        score={r.summary.overallScore}
+                        size="sm"
+                        invalid={!isTrustworthy(r.summary)}
+                      />
                     </Link>
                   ) : (
                     <span className="chip bg-sand text-slate">

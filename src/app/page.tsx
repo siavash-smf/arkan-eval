@@ -6,7 +6,7 @@ import { authEnabled } from "@/lib/auth";
 import { formatUsd } from "@/lib/pricing";
 import { getStore, storeKind } from "@/lib/store";
 import { listSuites } from "@/lib/suites";
-import { faNum, ms, relTime } from "@/lib/utils";
+import { faNum, isTrustworthy, ms, relTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +57,11 @@ export default async function OverviewPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="نمره‌ی کل"
-              value={`${faNum(latest.summary.overallScore)}/۱۰۰`}
+              value={
+                !isTrustworthy(latest.summary)
+                  ? "نامعتبر"
+                  : `${faNum(latest.summary.overallScore)}/۱۰۰`
+              }
               tone={
                 latest.summary.overallScore >= 80
                   ? "pass"
@@ -115,7 +119,11 @@ export default async function OverviewPage() {
                 className="card flex flex-wrap items-center gap-3 p-3 transition-colors hover:border-brass/50"
               >
                 {r.summary ? (
-                  <ScoreBadge score={r.summary.overallScore} size="sm" />
+                  <ScoreBadge
+                    score={r.summary.overallScore}
+                    size="sm"
+                    invalid={!isTrustworthy(r.summary)}
+                  />
                 ) : (
                   <span className="chip bg-sand text-slate">
                     {r.status === "running"

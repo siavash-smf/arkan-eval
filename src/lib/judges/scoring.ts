@@ -82,6 +82,16 @@ export function computeFinalScore(
   return { finalScore, verdict };
 }
 
+/**
+ * بیش از این نسبت کیس بی‌نتیجه → اجرا نامعتبر است.
+ *
+ * چرا ۱۵٪؟ چون یکی‌دو کیس شکست‌خورده اتفاق طبیعی است (تایم‌اوت شبکه،
+ * یک ۴۲۹ پراکنده) و نباید کل گزارش را باطل کند. ولی وقتی یک‌ششم
+ * گلدن‌ست بی‌پاسخ می‌ماند، دیگر مسئله «بات» نیست؛ مسئله این است که
+ * اندازه‌گیری انجام نشده.
+ */
+const MAX_UNUSABLE_RATIO = 0.15;
+
 export function summarize(
   results: CaseResult[],
   judgeCostUsd: number,
@@ -116,6 +126,16 @@ export function summarize(
 
   const latencies = results.map((r) => r.latencyMs).filter((n) => n > 0);
 
+  // ── سلامت اندازه‌گیری ──
+  // کیسی که پاسخی نگرفته، اصلاً داوری نشده؛ صفرش «نمره» نیست، «داده‌ی
+  // گمشده» است. اگر تعدادشان زیاد باشد، میانگین‌گیری روی بقیه هم
+  // گمراه‌کننده می‌شود.
+  const errorCount = results.filter((r) => r.error).length;
+  const emptyCount = results.filter((r) => !r.error && r.checks.empty).length;
+  const unusable = errorCount + emptyCount;
+  const unusableRatio = results.length ? unusable / results.length : 0;
+  const trustworthy = unusableRatio <= MAX_UNUSABLE_RATIO;
+
   return {
     overallScore,
     counts,
@@ -130,6 +150,19 @@ export function summarize(
       avgMs: Math.round(avg(latencies)),
       p95Ms: Math.round(percentile(latencies, 95)),
       maxMs: latencies.length ? Math.max(...latencies) : 0,
+    },
+    integrity: {
+      emptyCount,
+      errorCount,
+      unusableRatio: Number(unusableRatio.toFixed(3)),
+      trustworthy,
+      reason: trustworthy
+        ? null
+        : `${unusable} کیس از ${results.length} کیس هیچ پاسخی نگرفتند` +
+          `${emptyCount ? ` (${emptyCount} پاسخ خالی` : ""}` +
+          `${emptyCount && errorCount ? `، ${errorCount} خطا)` : emptyCount ? ")" : ""}` +
+          `${!emptyCount && errorCount ? ` (${errorCount} خطا)` : ""}` +
+          `. معمول‌ترین علت: اتمام اعتبار مدل، سقف نرخ هدف، یا خاموش‌بودن چت‌بات.`,
     },
     judgeCostUsd,
     judgeTokens,
