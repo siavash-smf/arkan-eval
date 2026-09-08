@@ -12,13 +12,15 @@
 
 ## چرا این فاز وجود دارد؟
 
-در فاز ۲ یک چت‌بات RAG ساختیم و سه سند نوشتیم:
+در فاز ۲ یک چت‌بات RAG ساختیم و سه سند نوشتیم. هر سه در پوشه‌ی
+[`اسناد فاز ۲/`](اسناد%20فاز%20۲/) کنار همین پروژه نگه داشته شده‌اند تا
+بشود نسخه‌ی دستی را با نسخه‌ی خودکار مقایسه کرد:
 
-| سند | چه بود |
-|---|---|
-| `arkan-chatbot-test-set.md` | ۳۲ کیس آزمون با «رفتار درست مورد انتظار» |
-| `arkan-chatbot-evaluation-guide.md` | متدولوژی سنجش |
-| `arkan-chatbot-evaluation-report-template.md` | قالب گزارش ماهانه |
+| سند | چه بود | در این پروژه چه شد |
+|---|---|---|
+| [`arkan-chatbot-test-set.md`](اسناد%20فاز%20۲/arkan-chatbot-test-set.md) | ۳۲ کیس آزمون با «رفتار درست مورد انتظار» | به [`suites/arkan-chatbot-golden.json`](suites/arkan-chatbot-golden.json) تبدیل شد — همان ۳۲ کیس، این‌بار اجراشدنی |
+| [`arkan-chatbot-evaluation-guide.md`](اسناد%20فاز%20۲/arkan-chatbot-evaluation-guide.md) | متدولوژی سنجش | به روبریک چهار داور در [`src/lib/judges/rubrics.ts`](src/lib/judges/rubrics.ts) و بررسی‌های قطعی [`checks.ts`](src/lib/judges/checks.ts) تبدیل شد |
+| [`arkan-chatbot-evaluation-report-template.md`](اسناد%20فاز%20۲/arkan-chatbot-evaluation-report-template.md) | قالب گزارش ماهانه | به گزارش خودکار `reports/*.md` و صفحه‌ی گزارش داشبورد تبدیل شد |
 
 هر سه **دستی** بودند. یعنی یک آدم باید می‌نشست، ۳۲ سؤال را یکی‌یکی در بات می‌زد، پاسخ‌ها را می‌خواند، و در جدول ✅/⚠️/❌ می‌گذاشت. نتیجه: هر بار که پرامپت عوض می‌شد، هیچ‌کس حوصله‌ی تکرارش را نداشت.
 
