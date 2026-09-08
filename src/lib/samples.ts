@@ -31,13 +31,20 @@ export async function listSampleRuns(): Promise<EvalRun[]> {
       }
     }
 
-    return runs.sort((a, b) => b.results.length - a.results.length);
+    // اول کامل‌ترین اجرا، و بین اجراهای هم‌اندازه، تازه‌ترین.
+    // بدون معیار دوم، وقتی دو اجرای ۳۲ کیسی کنار هم باشند ترتیب به
+    // خروجی readdir بند می‌شود و صفحه ممکن است گزارش قدیمی را نشان بدهد.
+    return runs.sort(
+      (a, b) =>
+        b.results.length - a.results.length ||
+        Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
   } catch {
     return [];
   }
 }
 
-/** کامل‌ترین اجرای نمونه — مبنای روایت صفحه‌ی آموزشی. */
+/** کامل‌ترین و تازه‌ترین اجرای نمونه — مبنای روایت صفحه‌ی آموزشی. */
 export async function getBaselineRun(): Promise<EvalRun | null> {
   const runs = await listSampleRuns();
   return runs[0] ?? null;
