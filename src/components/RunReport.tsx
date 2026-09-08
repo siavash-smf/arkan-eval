@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CaseResult, EvalRun, Verdict } from "@/lib/types";
 import { VERDICT_LABELS, VERDICTS } from "@/lib/types";
 import { cx, faNum, ms, pct } from "@/lib/utils";
@@ -12,15 +12,58 @@ import { DimensionBar, EmptyState, ScoreBadge, Stat, Teach, VerdictBar, VerdictC
 /**
  * گزارش یک اجرا.
  *
- * تا وقتی اجرا در جریان است، هر ۲ ثانیه وضعیت را می‌گیرد. چون runner
- * بعد از هر کیس پیشرفت را ذخیره می‌کند، کاربر نتایج را زنده می‌بیند
- * به‌جای اینکه چند دقیقه به یک اسپینر نگاه کند.
+ * دو کار هم‌زمان انجام می‌دهد:
+ *
+ * ۱. **راننده‌ی اجرا** — تا وقتی اجرا تمام نشده، مسیر advance را
+ *    پشت‌سرهم صدا می‌زند. هر فراخوانی یک تکه‌ی کوتاه (~۴ کیس) را
+ *    جلو می‌برد. چرا اینطور؟ چون اجرای کامل ~۳۱۴ ثانیه است و هیچ
+ *    درخواستی روی سرورلس این‌قدر زنده نمی‌ماند؛ قبلاً همین باعث
+ *    خطای ۵۰۴ می‌شد.
+ *
+ * ۲. **نمایش زنده** — هر ۲ ثانیه وضعیت را می‌خواند. چون runner بعد
+ *    از هر کیس پیشرفت را ذخیره می‌کند، نوار پیشرفت داخل هر تکه هم
+ *    تکان می‌خورد، نه فقط سر هر ۴۰ ثانیه.
  */
 export function RunReport({ runId, initial }: { runId: string; initial: EvalRun | null }) {
   const [run, setRun] = useState<EvalRun | null>(initial);
   const [filter, setFilter] = useState<Verdict | "all">("all");
   const [pollError, setPollError] = useState("");
 
+  // ── راننده‌ی اجرا ──
+  // عمداً cleanup ندارد: در حالت توسعه، StrictMode افکت را دوبار
+  // اجرا می‌کند و اگر حلقه را با cleanup بکشیم، اجرا هرگز شروع
+  // نمی‌شود. به‌جایش با یک ref مطمئن می‌شویم فقط یک حلقه راه بیفتد.
+  // اگر کاربر از صفحه برود هم حلقه ادامه می‌دهد، که همان چیزی است
+  // که می‌خواهیم — اجرا نباید نیمه‌کاره رها شود.
+  const drivingRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (drivingRef.current === runId) return;
+    drivingRef.current = runId;
+
+    (async () => {
+      for (;;) {
+        const res = await apiFetch(`/api/runs/${runId}/advance`, { method: "POST" });
+
+        if (res.status === 401) {
+          setPollError("رمز داشبورد ثبت نشده — اجرا نمی‌تواند ادامه پیدا کند.");
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setPollError(body.error || `ادامه‌ی اجرا شکست خورد (کد ${res.status}).`);
+          return;
+        }
+
+        setPollError("");
+        const { run: fresh, finished } = await res.json();
+        setRun(fresh);
+        if (finished) return;
+      }
+    })();
+  }, [runId]);
+
+  // ── نمایش زنده‌ی پیشرفت ──
   useEffect(() => {
     if (run?.status === "done" || run?.status === "error") return;
 
@@ -68,6 +111,9 @@ export function RunReport({ runId, initial }: { runId: string; initial: EvalRun 
           </div>
           <span className="tnum shrink-0 text-sm text-slate">
             {faNum(run.progress.done)} از {faNum(run.progress.total)} کیس
+          </span>
+          <span className="shrink-0 text-xs text-slate">
+            این صفحه اجرا را جلو می‌برد — تا پایان بازش نگه دارید.
           </span>
         </div>
       )}

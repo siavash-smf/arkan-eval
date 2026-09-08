@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isConfigured } from "@/lib/ai";
 import { isAuthorized, unauthorized } from "@/lib/auth";
-import { runEvaluation } from "@/lib/runner";
+import { createRun } from "@/lib/runner";
 import { getStore } from "@/lib/store";
 import { getSuite } from "@/lib/suites";
 import { resolveTarget } from "@/lib/targets";
@@ -9,11 +9,16 @@ import { resolveTarget } from "@/lib/targets";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 /**
- * ارزیابی کامل می‌تواند چند دقیقه طول بکشد (throttle هدف + ۴ داور در هر کیس).
- * سقف را روی حداکثر مجاز Vercel می‌گذاریم. برای گلدن‌ست بزرگ‌تر باید
- * به اجرای پس‌زمینه‌ای (queue) منتقل شود.
+ * این مسیر فقط رکورد اجرا را می‌سازد و برمی‌گردد — چند صدم ثانیه.
+ *
+ * قبلاً کل ارزیابی داخل همین درخواست انجام می‌شد و روی Vercel با
+ * «Task timed out after 300 seconds» می‌مرد: اجرای کامل ~۳۱۴ ثانیه
+ * طول می‌کشد و سقف تابع ۳۰۰ ثانیه است. یعنی درست چند ثانیه مانده
+ * به پایان کشته می‌شد و کاربر ۵۰۴ می‌گرفت.
+ *
+ * حالا اجرا تکه‌تکه با /api/runs/[id]/advance جلو می‌رود.
  */
-export const maxDuration = 300;
+export const maxDuration = 30;
 
 const BodySchema = z.object({
   runId: z.string().uuid(),
@@ -47,9 +52,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    // کلاینت runId را خودش می‌سازد و بلافاصله شروع به poll کردن می‌کند،
-    // پس حتی اگر این درخواست timeout بخورد، پیشرفت قابل دیدن است.
-    const run = await runEvaluation({
+    // کلاینت runId را خودش می‌سازد؛ پس به‌محض ساخته‌شدن رکورد می‌تواند
+    // برود صفحه‌ی گزارش و خودش اجرا را تکه‌تکه جلو ببرد.
+    const run = await createRun({
       runId: body.runId,
       suite,
       target: resolveTarget(body.targetId),
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
       categories: body.categories,
       store: getStore(),
     });
-    return Response.json({ run });
+    return Response.json({ run }, { status: 201 });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }

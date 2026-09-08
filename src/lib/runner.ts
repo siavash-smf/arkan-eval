@@ -102,7 +102,14 @@ async function runCase(
   // هم پول هدر دادن است هم نمره‌ی بی‌معنا تولید می‌کند.
   if (error || checks.empty) {
     return {
-      result: { ...base, expectation: null, faithfulness: null, brandVoice: null, safety: null },
+      result: {
+        ...base,
+        expectation: null,
+        faithfulness: null,
+        brandVoice: null,
+        safety: null,
+        judgeUsage: usage,
+      },
       usage,
     };
   }
@@ -136,19 +143,39 @@ async function runCase(
   ]);
 
   return {
-    result: { ...base, expectation, faithfulness, brandVoice, safety },
+    result: { ...base, expectation, faithfulness, brandVoice, safety, judgeUsage: usage },
     usage,
   };
 }
 
-export async function runEvaluation(opts: RunOptions): Promise<EvalRun> {
-  const { runId, suite, target, store } = opts;
+/**
+ * تخمین محافظه‌کارانه‌ی زمان یک کیس: فاصله‌ی throttle (۳٫۲ ثانیه) +
+ * پاسخ بات (~۶ ثانیه، p95 حدود ۷٫۵) + چهار داور موازی (~۵ ثانیه).
+ * اگر این‌قدر وقت تا پایان بودجه نمانده باشد، کیس بعدی را شروع
+ * نمی‌کنیم — کیس نیمه‌کاره نه ذخیره می‌شود نه ارزشی دارد.
+ */
+const CASE_BUDGET_MS = 20_000;
 
+/** فهرست کیس‌ها بعد از اعمال فیلتر دسته و سقف تعداد. */
+function planCases(suite: Suite, opts: { limit?: number; categories?: string[] }): EvalCase[] {
   let cases = suite.cases;
   if (opts.categories?.length) {
     cases = cases.filter((c) => opts.categories!.includes(c.category));
   }
   if (opts.limit) cases = cases.slice(0, opts.limit);
+  return cases;
+}
+
+/**
+ * ساخت رکورد اجرا — بدون اجرای هیچ کیسی.
+ *
+ * چرا جدا از اجرا؟ چون درخواستی که کل ارزیابی را انجام می‌داد
+ * روی سرورلس تایم‌اوت می‌خورد (سقف ۳۰۰ ثانیه، اجرای کامل ~۳۱۴ ثانیه).
+ * حالا ساختِ اجرا یک عملیات آنی است و خودِ اجرا تکه‌تکه جلو می‌رود.
+ */
+export async function createRun(opts: RunOptions): Promise<EvalRun> {
+  const { runId, suite, target, store } = opts;
+  const cases = planCases(suite, opts);
 
   const run: EvalRun = {
     id: runId,
@@ -160,25 +187,73 @@ export async function runEvaluation(opts: RunOptions): Promise<EvalRun> {
     targetLabel: target.label,
     judgeModel: judgeModelId(),
     label: opts.label || "",
-    progress: { done: 0, total: cases.length },
+    progress: { done: 0, total: cases.length, caseIds: cases.map((c) => c.id) },
     results: [],
     summary: null,
   };
 
   await store.saveRun(run);
+  return run;
+}
 
-  const totalUsage: Usage = { in: 0, out: 0 };
+/** جمع مصرف داورها روی همه‌ی کیس‌های انجام‌شده — تا الان. */
+function totalUsageOf(results: CaseResult[]): Usage {
+  return results.reduce<Usage>(
+    (a, r) => ({ in: a.in + (r.judgeUsage?.in ?? 0), out: a.out + (r.judgeUsage?.out ?? 0) }),
+    { in: 0, out: 0 }
+  );
+}
 
-  for (const c of cases) {
+export type AdvanceOptions = {
+  run: EvalRun;
+  suite: Suite;
+  target: EvalTarget;
+  store: BlogStoreLike;
+  /**
+   * سقف زمانی این تکه. وقتی تمام شد، اجرا نیمه‌کاره ذخیره می‌شود و
+   * فراخوانی بعدی از همان‌جا ادامه می‌دهد. `Infinity` یعنی تا آخر برو
+   * (حالت CLI، جایی که تایم‌اوتی در کار نیست).
+   */
+  budgetMs?: number;
+  onProgress?: RunOptions["onProgress"];
+};
+
+/**
+ * اجرا را تا جایی که بودجه‌ی زمانی اجازه می‌دهد جلو می‌برد.
+ *
+ * قابل ازسرگیری است: کیس‌هایی که نتیجه‌شان از قبل ثبت شده دوباره
+ * اجرا نمی‌شوند. پس اگر یک تکه هم شکست بخورد، کار انجام‌شده از
+ * دست نمی‌رود و فراخوانی بعدی ادامه می‌دهد.
+ */
+export async function advanceRun(opts: AdvanceOptions): Promise<EvalRun> {
+  const { run, suite, target, store } = opts;
+  const budgetMs = opts.budgetMs ?? Infinity;
+  const deadline = Date.now() + budgetMs;
+
+  // نقشه‌ی ذخیره‌شده مرجع است؛ اگر نبود (اجرای قدیمی)، کل مجموعه.
+  const plan = run.progress.caseIds;
+  const planned = plan ? suite.cases.filter((c) => plan.includes(c.id)) : suite.cases;
+
+  const done = new Set(run.results.map((r) => r.caseId));
+  const remaining = planned.filter((c) => !done.has(c.id));
+
+  run.progress.total = planned.length;
+
+  for (const c of remaining) {
+    // پیش از شروع کیس بعدی چک می‌کنیم؛ کیس نیمه‌کاره فایده‌ای ندارد.
+    // هر کیس ~۱۰ ثانیه طول می‌کشد (فاصله‌ی throttle + پاسخ بات + داورها).
+    if (Date.now() + CASE_BUDGET_MS > deadline) {
+      run.progress.done = run.results.length;
+      await store.saveRun(run);
+      return run;
+    }
+
     try {
-      const { result, usage } = await runCase(c, target);
-      totalUsage.in += usage.in;
-      totalUsage.out += usage.out;
-
+      const { result } = await runCase(c, target);
       const { finalScore, verdict } = computeFinalScore(result);
       const full: CaseResult = { ...result, finalScore, verdict };
       run.results.push(full);
-      opts.onProgress?.(run.results.length, cases.length, full);
+      opts.onProgress?.(run.results.length, planned.length, full);
     } catch (e) {
       // یک کیس شکست‌خورده نباید کل اجرا را بخواباند. ثبتش می‌کنیم
       // و می‌رویم سراغ بعدی — گزارش ناقص از گزارش نداشتن بهتر است.
@@ -201,7 +276,7 @@ export async function runEvaluation(opts: RunOptions): Promise<EvalRun> {
         error: (e as Error).message,
       };
       run.results.push(failed);
-      opts.onProgress?.(run.results.length, cases.length, failed);
+      opts.onProgress?.(run.results.length, planned.length, failed);
     }
 
     // پیشرفت را بعد از هر کیس ذخیره می‌کنیم تا داشبورد بتواند
@@ -210,10 +285,27 @@ export async function runEvaluation(opts: RunOptions): Promise<EvalRun> {
     await store.saveRun(run);
   }
 
-  run.summary = summarize(run.results, costUsd(run.judgeModel, totalUsage), totalUsage);
+  const usage = totalUsageOf(run.results);
+  run.summary = summarize(run.results, costUsd(run.judgeModel, usage), usage);
   run.status = "done";
   run.finishedAt = new Date().toISOString();
   await store.saveRun(run);
 
   return run;
+}
+
+/**
+ * اجرای کامل در یک نشست — بدون سقف زمانی.
+ * مسیر CLI (`npm run eval`) از این استفاده می‌کند، جایی که خبری از
+ * تایم‌اوت سرورلس نیست.
+ */
+export async function runEvaluation(opts: RunOptions): Promise<EvalRun> {
+  const run = await createRun(opts);
+  return advanceRun({
+    run,
+    suite: opts.suite,
+    target: opts.target,
+    store: opts.store,
+    onProgress: opts.onProgress,
+  });
 }

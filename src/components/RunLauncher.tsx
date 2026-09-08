@@ -15,10 +15,13 @@ type SuiteMeta = {
  * راه‌انداز اجرا.
  *
  * الگوی مهم (وام‌گرفته از فاز ۳): شناسه‌ی اجرا را *کلاینت* می‌سازد،
- * نه سرور. چرا؟ چون ارزیابی کامل چند دقیقه طول می‌کشد و ممکن است
- * درخواست HTTP قبل از تمام‌شدنش timeout بخورد. اگر کلاینت شناسه را
- * از قبل داشته باشد، می‌تواند بلافاصله برود صفحه‌ی گزارش و پیشرفت
- * را poll کند — حتی اگر درخواست اولیه بمیرد، اجرا در سرور ادامه دارد.
+ * نه سرور. پس به‌محض اینکه رکورد اجرا ساخته شد، می‌توانیم برویم
+ * صفحه‌ی گزارش.
+ *
+ * این درخواست دیگر خودِ ارزیابی را انجام نمی‌دهد — فقط رکورد را
+ * می‌سازد و برمی‌گردد. اجرای واقعی تکه‌تکه در صفحه‌ی گزارش جلو
+ * می‌رود. قبلاً همه‌چیز در همین یک درخواست بود و روی سرورلس با
+ * ۵۰۴ می‌مرد، چون هیچ تابعی ۳۱۴ ثانیه زنده نمی‌ماند.
  */
 export function RunLauncher({ suites }: { suites: SuiteMeta[] }) {
   const router = useRouter();
@@ -28,12 +31,14 @@ export function RunLauncher({ suites }: { suites: SuiteMeta[] }) {
   const [limit, setLimit] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pendingId, setPendingId] = useState("");
 
   const suite = suites.find((s) => s.id === suiteId);
 
   async function start() {
     setBusy(true);
     setError("");
+    setPendingId("");
 
     const runId = crypto.randomUUID();
 
@@ -57,11 +62,10 @@ export function RunLauncher({ suites }: { suites: SuiteMeta[] }) {
       }
       router.push(`/runs/${runId}`);
     } catch (e) {
-      // حتی اگر درخواست شکست خورد، ممکن است اجرا شروع شده باشد.
-      // پس لینک گزارش را نگه می‌داریم.
-      setError(
-        `${(e as Error).message} — اگر اجرا شروع شده باشد، می‌توانید در صفحه‌ی گزارش دنبالش کنید.`
-      );
+      // حتی اگر این درخواست شکست خورد، ممکن است رکورد اجرا ساخته شده
+      // باشد. پس به‌جای یک جمله‌ی بن‌بست، لینک گزارش را می‌دهیم.
+      setError((e as Error).message);
+      setPendingId(runId);
       setBusy(false);
     }
   }
@@ -137,12 +141,24 @@ export function RunLauncher({ suites }: { suites: SuiteMeta[] }) {
         </button>
         <span className="text-xs text-slate">
           هدف بین درخواست‌ها ۳٫۲ ثانیه فاصله می‌گذارد تا به سقف نرخ چت‌بات نخورد؛
-          اجرای کامل چند دقیقه طول می‌کشد.
+          اجرای کامل چند دقیقه طول می‌کشد و در صفحه‌ی گزارش تکه‌تکه جلو می‌رود.
+          صفحه را تا پایان باز نگه دارید.
         </span>
       </div>
 
       {error && (
-        <p className="mt-3 rounded-btn bg-fail/10 px-3 py-2 text-sm text-fail">{error}</p>
+        <p className="mt-3 rounded-btn bg-fail/10 px-3 py-2 text-sm text-fail">
+          {error}
+          {pendingId && (
+            <>
+              {" — "}
+              <a className="underline" href={`/runs/${pendingId}`}>
+                باز کردن صفحه‌ی گزارش
+              </a>
+              {" (اگر رکورد اجرا ساخته شده باشد، از همان‌جا ادامه پیدا می‌کند)"}
+            </>
+          )}
+        </p>
       )}
     </div>
   );
